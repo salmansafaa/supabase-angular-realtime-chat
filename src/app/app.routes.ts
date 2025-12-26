@@ -1,21 +1,11 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './auth.guard';
+import { LoginComponent } from './pages/login/login.component';
+import { ChatComponent } from './pages/chat/chat.component';
 
 export const routes: Routes = [
-    {
-        path: 'chat',
-        canActivate: [authGuard],
-        loadComponent: () => 
-            import('./pages/chat/chat.component').then((com) => com.ChatComponent)
-    },
-    {
-        path: 'login',
-        loadComponent: () => 
-            import('./pages/login/login.component').then((com) => com.LoginComponent)
-    },
-    {
-        path: '', // if user enter empty, they get redirected to log in
-        loadComponent: () => 
-            import('./pages/login/login.component').then((com) => com.LoginComponent)
-    },
+  { path: '', redirectTo: 'chat', pathMatch: 'full' },
+  { path: 'login', component: LoginComponent },
+  { path: 'chat', component: ChatComponent, canActivate: [authGuard] },
+  { path: '**', redirectTo: 'chat' } // Fallback
 ];

@@ -7,44 +7,54 @@ import { Router } from '@angular/router';
   providedIn: 'root'
 })
 export class AuthService {
-  private supabase!: SupabaseClient;
+  public supabase: SupabaseClient = createClient(
+    environment.supabaseUrl,
+    environment.supabaseKey,
+    {
+      auth: {
+        persistSession: true,
+        detectSessionInUrl: true,
+        autoRefreshToken: true,
+        storageKey: 'sb-auth-token',
+        // This stops the NavigatorLock error
+        lockType: 'custom',
+        async lock(name: string, callback: any) {
+          const execute = typeof callback === 'function' ? callback : callback?.acquire;
+          return typeof execute === 'function' ? await execute() : null;
+        }
+      } as any
+    }
+  );
 
   private router = inject(Router);
   private _ngZone = inject(NgZone);
 
-  constructor() { 
-    this.supabase = createClient(
-      environment.supabaseUrl,
-      environment.supabaseKey
-    );
-
+  constructor() {
     this.supabase.auth.onAuthStateChange((event, session) => {
-      console.log("event", event); 
-      console.log("session", session); 
-
-      localStorage.setItem('session', JSON.stringify(session?.user));
-
-      if(session?.user) {
-      this._ngZone.run(() => {
-        this.router.navigate(['/chat']);
-      })
-    }  
-  });
+      if (session?.user) {
+        localStorage.setItem('session', JSON.stringify(session.user));
+      } else {
+        localStorage.removeItem('session');
+      }
+    });
   }
 
   get isLoggedIn(): boolean {
-    const user = localStorage.getItem('session') as string
-
-      return user == 'undefined' ? false : true
+    return !!localStorage.getItem('session') || !!localStorage.getItem('sb-auth-token');
   }
 
   async signInWithGoogle() {
-    await this.supabase.auth.signInWithOAuth({
+    return await this.supabase.auth.signInWithOAuth({
       provider: 'google',
+      options: { redirectTo: window.location.origin + '/chat' }
     });
   }
 
   async signOut() {
-    await this.supabase.auth.signOut();   
+    await this.supabase.auth.signOut();
+    localStorage.clear();
+    this._ngZone.run(() => {
+      this.router.navigate(['/login']);
+    });
   }
 }
