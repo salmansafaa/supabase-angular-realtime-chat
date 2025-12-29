@@ -16,44 +16,49 @@ export class ChatService {
   public savedChat = signal<any>({});
 
  async chatMessage(text: string) {
-  // 1. Get the current user
-  const { data: { user } } = await this.supabase.auth.getUser();
+  // Use getSession instead of getUser (it's often more reliable in browsers with strict privacy)
+  const { data: { session } } = await this.supabase.auth.getSession();
 
-  if (!user) {
-    alert("No active session found!");
-    return;
+  if (!session?.user) {
+    throw new Error("You must be logged in to send messages");
   }
 
-  // 2. Perform the insert
   const { data, error } = await this.supabase
     .from('chat')
     .insert({ 
       text: text, 
-      sender: user.id // This ID must exist in the table your FK points to
+      sender: session.user.id 
     })
     .select();
 
-  if (error) {
-    console.error("Insert Error Details:", error);
-    throw error;
-  }
+  if (error) throw error;
   return data;
 }
 
-  async listChat() {
-    try {
-      // Assuming your sender column relates to a users table
-      const { data, error } = await this.supabase
-        .from('chat')
-        .select('*, sender(*)'); // Adjusting to match your 'sender' column name
-      
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('List Chat Error:', error);
-      return [];
-    }
+// Update the function signature
+async listChat(): Promise<Ichat[]> { 
+  const { data, error } = await this.supabase
+    .from('chat')
+    .select(`
+      id,
+      text,
+      created_at,
+      sender,
+      users:sender (
+        full_name,
+        avatar_url
+      )
+    `)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return [];
   }
+  
+  // Cast to any then to Ichat[] to bypass the deep nesting validation
+  return (data as any) as Ichat[]; 
+}
 
   async deleteChat(id: string) {
     return await this.supabase.from('chat').delete().eq('id', id);

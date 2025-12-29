@@ -16,11 +16,16 @@ export class AuthService {
         detectSessionInUrl: true,
         autoRefreshToken: true,
         storageKey: 'sb-auth-token',
-        // This stops the NavigatorLock error
         lockType: 'custom',
+        // 'name' is now a string, 'callback' is any. No more red lines.
         async lock(name: string, callback: any) {
-          const execute = typeof callback === 'function' ? callback : callback?.acquire;
-          return typeof execute === 'function' ? await execute() : null;
+          if (typeof callback === 'function') {
+            return await callback();
+          }
+          if (callback && typeof callback.acquire === 'function') {
+            return await callback.acquire();
+          }
+          return;
         }
       } as any
     }
@@ -43,12 +48,19 @@ export class AuthService {
     return !!localStorage.getItem('session') || !!localStorage.getItem('sb-auth-token');
   }
 
-  async signInWithGoogle() {
-    return await this.supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin + '/chat' }
-    });
-  }
+ async signInWithGoogle() {
+  await this.supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      // This is what your friend has:
+      queryParams: {
+        prompt: 'select_account',
+        access_type: 'offline'
+      },
+      redirectTo: window.location.origin + '/chat'
+    }
+  });
+}
 
   async signOut() {
     await this.supabase.auth.signOut();

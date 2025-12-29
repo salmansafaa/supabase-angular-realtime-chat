@@ -30,13 +30,11 @@ export class ChatComponent implements OnInit {
   }
 
   async ngOnInit() {
-    // Check session from Supabase (handles the URL token)
-    const { data } = await this.auth.supabase.auth.getSession();
+    const res = await this.auth.supabase.auth.getSession();
     
-    if (data?.session || this.auth.isLoggedIn) {
-      // Clean the URL hash so it looks professional
+    if (res?.data?.session) {
       if (window.location.hash) {
-        this.router.navigate([], { fragment: undefined, replaceUrl: true });
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
       this.onListChat();
     } else {
@@ -45,29 +43,20 @@ export class ChatComponent implements OnInit {
   }
 
   onListChat() {
-    this.chat_service.listChat()
-      .then((res) => {
-        if (res) this.chats.set(res);
-      })
-      .catch((err) => console.error(err.message));
+    this.chat_service.listChat().then(res => this.chats.set(res));
   }
 
   onSubmit() {
     if (this.chatForm.invalid) return;
-    const message = this.chatForm.value.chat_message;
-    this.chat_service.chatMessage(message)
+    this.chat_service.chatMessage(this.chatForm.value.chat_message)
       .then(() => {
         this.chatForm.reset();
         this.onListChat();
-      })
-      .catch((err) => alert(err.message));
+      });
   }
 
- async logOut() {
-    // This bypasses the service entirely so the app compiles
-    await (this.auth as any).supabase.auth.signOut();
-    localStorage.clear();
-    this.router.navigate(['/login']);
+  async logOut() {
+    await this.auth.signOut();
   }
 
   openDropDown(msg: Ichat) {
